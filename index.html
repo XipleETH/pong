@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pong Versus 2v2</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside class="panel">
+        <h1>Pong Versus</h1>
+        <p class="subtitle">2v2 con poderes, mapas roguelike y matchmaking</p>
+
+        <label class="field">
+          <span>Modo</span>
+          <select id="mode">
+            <option value="offline">Local (con bots)</option>
+            <option value="online">Online Matchmaking</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Nombre</span>
+          <input id="nickname" type="text" maxlength="18" value="Jugador" />
+        </label>
+
+        <label class="field">
+          <span>Jugadores locales</span>
+          <select id="local-count">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+
+        <div class="actions">
+          <button id="start-btn">Iniciar</button>
+          <button id="leave-btn" class="ghost">Salir</button>
+        </div>
+
+        <p id="status" class="status">Listo</p>
+
+        <ul class="legend">
+          <li>Online ranked: party size maximo <code>2</code></li>
+          <li>P1: <code>W/S</code></li>
+          <li>P1 fuego: <code>D</code></li>
+          <li>P2: <code>Up/Down</code></li>
+          <li>P2 fuego: <code>L</code></li>
+          <li>P3: <code>T/G</code></li>
+          <li>P3 fuego: <code>H</code></li>
+          <li>P4: <code>I/K</code></li>
+          <li>P4 fuego: <code>O</code></li>
+          <li>Gamepad: stick izquierdo vertical</li>
+          <li>Gamepad fuego: boton A</li>
+        </ul>
+      </aside>
+
+      <main class="stage">
+        <canvas id="game-canvas"></canvas>
+        <section class="hud">
+          <div class="score">
+            <span class="team ember">EMBER</span>
+            <span id="score-ember" class="value">0</span>
+            <span class="divider">:</span>
+            <span id="score-azure" class="value">0</span>
+            <span class="team azure">AZURE</span>
+          </div>
+          <div id="map-name" class="map-name">Mapa: -</div>
+          <div id="buffs" class="buffs">Buffs: -</div>
+          <div id="event-log" class="event-log">Evento: -</div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
