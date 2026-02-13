@@ -152,6 +152,7 @@ async function queueOnline() {
   const playlist = selectedOnlinePlaylist();
   const requestedPartySize = clamp(Number(localCountEl.value) || 1, 1, 4);
   const partySize = clamp(requestedPartySize, 1, playlist.maxPartySize);
+  const seatsNeeded = playlist.key === "duel" ? 2 : 4;
   resetRuntimeState();
   startBtn.disabled = true;
 
@@ -160,10 +161,12 @@ async function queueOnline() {
   network.queueForMatch({ nickname, partySize, playlist: playlist.key });
   if (requestedPartySize !== partySize) {
     setStatus(
-      `En cola ${playlist.label} (${nickname}) con party size ${partySize} (ajustado).`
+      `En cola ${playlist.label} (${nickname}) con party size ${partySize} (ajustado). Faltan ${seatsNeeded} cupos totales para iniciar.`
     );
   } else {
-    setStatus(`En cola ${playlist.label} (${nickname}) con party size ${partySize}.`);
+    setStatus(
+      `En cola ${playlist.label} (${nickname}) con party size ${partySize}. Faltan ${seatsNeeded} cupos totales para iniciar.`
+    );
   }
 }
 

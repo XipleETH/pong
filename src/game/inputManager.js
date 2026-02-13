@@ -20,8 +20,8 @@ export class InputManager {
 
     window.addEventListener("keydown", (event) => {
       if (!this.pressed.has(event.code)) {
-        this.localSlots.forEach((slot) => {
-          const bindings = FIRE_BINDINGS[slot] ?? [];
+        this.localSlots.forEach((slot, index) => {
+          const bindings = FIRE_BINDINGS[index] ?? FIRE_BINDINGS[slot] ?? [];
           if (bindings.includes(event.code)) {
             this.fireQueue.add(slot);
           }
@@ -53,7 +53,7 @@ export class InputManager {
       : [];
 
     this.localSlots.forEach((slot, index) => {
-      const binding = KEY_BINDINGS[slot];
+      const binding = KEY_BINDINGS[index] ?? KEY_BINDINGS[slot];
       const keyboardAxis =
         (this.pressed.has(binding.up) ? 1 : 0) -
         (this.pressed.has(binding.down) ? 1 : 0);
