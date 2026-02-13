@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pong Versus 2v2</title>
+    <title>Pong Versus 2v2 + 1v1</title>
   </head>
   <body>
     <div id="app">
       <aside class="panel">
         <h1>Pong Versus</h1>
-        <p class="subtitle">2v2 con poderes, mapas roguelike y matchmaking</p>
+        <p class="subtitle">2v2 y 1v1 con poderes, mapas roguelike y matchmaking</p>
 
         <label class="field">
           <span>Modo</span>
@@ -34,6 +34,14 @@
           </select>
         </label>
 
+        <label class="field">
+          <span>Formato online</span>
+          <select id="online-playlist">
+            <option value="ranked">2v2 Ranked</option>
+            <option value="duel">1v1 Duel</option>
+          </select>
+        </label>
+
         <div class="actions">
           <button id="start-btn">Iniciar</button>
           <button id="leave-btn" class="ghost">Salir</button>
@@ -42,7 +50,8 @@
         <p id="status" class="status">Listo</p>
 
         <ul class="legend">
-          <li>Online ranked: party size maximo <code>2</code></li>
+          <li>2v2 Ranked: party size maximo <code>2</code></li>
+          <li>1v1 Duel: party size maximo <code>1</code></li>
           <li>P1: <code>W/S</code></li>
           <li>P1 fuego: <code>D</code></li>
           <li>P2: <code>Up/Down</code></li>

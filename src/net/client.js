@@ -112,11 +112,11 @@ export class MatchClient {
     });
   }
 
-  queueForMatch({ nickname, partySize }) {
+  queueForMatch({ nickname, partySize, playlist = "ranked" }) {
     this.socket?.emit("joinQueue", {
       nickname,
       partySize,
-      playlist: "ranked",
+      playlist,
       region: "na",
       inputMode: "mixed",
       maxPingMs: 220,

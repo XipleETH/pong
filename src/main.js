@@ -9,6 +9,7 @@ import { MatchClient } from "./net/client.js";
 const modeEl = document.querySelector("#mode");
 const nicknameEl = document.querySelector("#nickname");
 const localCountEl = document.querySelector("#local-count");
+const onlinePlaylistEl = document.querySelector("#online-playlist");
 const startBtn = document.querySelector("#start-btn");
 const leaveBtn = document.querySelector("#leave-btn");
 const statusEl = document.querySelector("#status");
@@ -35,8 +36,27 @@ let lastFrame = performance.now();
 let slotOwners = new Map();
 let currentMapSeed = null;
 
+const ONLINE_PLAYLISTS = {
+  ranked: {
+    label: "2v2 Ranked",
+    maxPartySize: 2,
+  },
+  duel: {
+    label: "1v1 Duel",
+    maxPartySize: 1,
+  },
+};
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function selectedOnlinePlaylist() {
+  const key = onlinePlaylistEl?.value === "duel" ? "duel" : "ranked";
+  return {
+    key,
+    ...ONLINE_PLAYLISTS[key],
+  };
 }
 
 function setStatus(message) {
@@ -129,20 +149,21 @@ function startOffline() {
 
 async function queueOnline() {
   const nickname = nicknameEl.value.trim() || "Jugador";
+  const playlist = selectedOnlinePlaylist();
   const requestedPartySize = clamp(Number(localCountEl.value) || 1, 1, 4);
-  const partySize = clamp(requestedPartySize, 1, 2);
+  const partySize = clamp(requestedPartySize, 1, playlist.maxPartySize);
   resetRuntimeState();
   startBtn.disabled = true;
 
   setStatus("Conectando al matchmaking...");
   await network.connect();
-  network.queueForMatch({ nickname, partySize });
+  network.queueForMatch({ nickname, partySize, playlist: playlist.key });
   if (requestedPartySize !== partySize) {
     setStatus(
-      `En cola (${nickname}) con party size ${partySize} (ajustado para ranked 2v2).`
+      `En cola ${playlist.label} (${nickname}) con party size ${partySize} (ajustado).`
     );
   } else {
-    setStatus(`En cola (${nickname}) con party size ${partySize}.`);
+    setStatus(`En cola ${playlist.label} (${nickname}) con party size ${partySize}.`);
   }
 }
 
@@ -168,8 +189,12 @@ network.on("queued", (payload) => {
   if (modeEl.value !== "online") {
     return;
   }
+  const playlistLabel =
+    payload.playlist === "duel"
+      ? ONLINE_PLAYLISTS.duel.label
+      : ONLINE_PLAYLISTS.ranked.label;
   setStatus(
-    `En cola: posicion ${payload.position}/${payload.total} | MMR ${payload.mmr} | rango +/-${payload.mmrRange}`
+    `${playlistLabel} | posicion ${payload.position}/${payload.total} | MMR ${payload.mmr} | rango +/-${payload.mmrRange}`
   );
 });
 
@@ -177,8 +202,12 @@ network.on("queueUpdate", (payload) => {
   if (modeEl.value !== "online" || roomId) {
     return;
   }
+  const playlistLabel =
+    payload.playlist === "duel"
+      ? ONLINE_PLAYLISTS.duel.label
+      : ONLINE_PLAYLISTS.ranked.label;
   setStatus(
-    `En cola: posicion ${payload.position}/${payload.total} | espera ${payload.waitSeconds}s | rango +/-${payload.mmrRange}`
+    `${playlistLabel} | posicion ${payload.position}/${payload.total} | espera ${payload.waitSeconds}s | rango +/-${payload.mmrRange}`
   );
 });
 
@@ -227,7 +256,7 @@ network.on("matchFound", (payload) => {
   setRendererMap(remoteSnapshot);
   startBtn.disabled = true;
   setStatus(
-    `Match ${roomId} listo. Slots locales: ${localSlots.join(", ")}. Simulacion autoritativa en servidor.`
+    `Match ${roomId} (${payload.playlist === "duel" ? "1v1" : "2v2"}) listo. Slots locales: ${localSlots.join(", ")}. Simulacion autoritativa en servidor.`
   );
 });
 

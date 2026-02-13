@@ -26,9 +26,31 @@ const MATCH_MAX_DURATION_MS = 8 * 60 * 1000;
 const DEFAULT_MAX_PING_MS = 220;
 const ELO_K = 26;
 const ABANDON_PENALTY = 24;
-const TEAM_SLOTS = {
-  0: [0, 1],
-  1: [2, 3],
+const INACTIVE_SLOT_RESPAWN_SECONDS = 60 * 60 * 24;
+
+const PLAYLISTS = {
+  ranked: {
+    id: "ranked",
+    label: "2v2 Ranked",
+    teamSize: 2,
+    totalSeats: 4,
+    teamSlots: {
+      0: [0, 1],
+      1: [2, 3],
+    },
+    maxPartySize: 2,
+  },
+  duel: {
+    id: "duel",
+    label: "1v1 Duel",
+    teamSize: 1,
+    totalSeats: 2,
+    teamSlots: {
+      0: [0],
+      1: [2],
+    },
+    maxPartySize: 1,
+  },
 };
 
 function clamp(value, min, max) {
@@ -44,7 +66,15 @@ function sanitizeNickname(value) {
 }
 
 function normalizePlaylist(value) {
-  return value === "casual" ? "casual" : "ranked";
+  const normalized = String(value ?? "ranked").toLowerCase().trim();
+  if (normalized === "duel" || normalized === "1v1") {
+    return "duel";
+  }
+  return "ranked";
+}
+
+function getPlaylistConfig(playlist) {
+  return PLAYLISTS[playlist] ?? PLAYLISTS.ranked;
 }
 
 function normalizeRegion(value) {
@@ -80,10 +110,6 @@ function ratingAverage(entries) {
   }
   const weighted = entries.reduce((sum, entry) => sum + entry.rating * entry.partySize, 0);
   return weighted / totalWeight;
-}
-
-function shouldForcePartyClamp(playlist) {
-  return playlist === "ranked";
 }
 
 function getBucketKey(entry) {
@@ -135,7 +161,7 @@ function compareCandidate(a, b) {
   }
   return a.avgPing <= b.avgPing ? a : b;
 }
-function findBestTeamPartition(entries) {
+function findBestTeamPartition(entries, teamSize) {
   const chosen = [];
   let best = null;
 
@@ -156,7 +182,7 @@ function findBestTeamPartition(entries) {
       }
     }
 
-    if (team0Seats !== 2 || team1Seats !== 2) {
+    if (team0Seats !== teamSize || team1Seats !== teamSize) {
       return;
     }
 
@@ -174,11 +200,11 @@ function findBestTeamPartition(entries) {
   }
 
   function dfs(startIndex, currentSeats) {
-    if (currentSeats === 2) {
+    if (currentSeats === teamSize) {
       evaluatePartition(chosen);
       return;
     }
-    if (currentSeats > 2) {
+    if (currentSeats > teamSize) {
       return;
     }
     for (let i = startIndex; i < entries.length; i += 1) {
@@ -206,10 +232,10 @@ function findBestTeamPartition(entries) {
   };
 }
 
-function assignSlots(entries, assignmentByEntryId) {
+function assignSlots(entries, assignmentByEntryId, playlistConfig) {
   const slotsByTeam = {
-    0: [...TEAM_SLOTS[0]],
-    1: [...TEAM_SLOTS[1]],
+    0: [...playlistConfig.teamSlots[0]],
+    1: [...playlistConfig.teamSlots[1]],
   };
   const byTeam = {
     0: [],
@@ -274,7 +300,7 @@ function comboCompatible(entries, now) {
   return true;
 }
 
-function findBestCandidate(entries, now) {
+function findBestCandidate(entries, now, playlistConfig) {
   if (entries.length < 2) {
     return null;
   }
@@ -287,11 +313,11 @@ function findBestCandidate(entries, now) {
     if (!comboCompatible(current, now)) {
       return;
     }
-    const partition = findBestTeamPartition(current);
+    const partition = findBestTeamPartition(current, playlistConfig.teamSize);
     if (!partition) {
       return;
     }
-    const slotMap = assignSlots(current, partition.assignmentByEntryId);
+    const slotMap = assignSlots(current, partition.assignmentByEntryId, playlistConfig);
     if (!slotMap) {
       return;
     }
@@ -312,11 +338,11 @@ function findBestCandidate(entries, now) {
   }
 
   function dfs(startIndex, seatCount) {
-    if (seatCount === 4) {
+    if (seatCount === playlistConfig.totalSeats) {
       evaluateCurrent();
       return;
     }
-    if (seatCount > 4) {
+    if (seatCount > playlistConfig.totalSeats) {
       return;
     }
     for (let i = startIndex; i < searchPool.length; i += 1) {
@@ -443,12 +469,12 @@ function updateAllQueuePositions() {
 
 function enqueueFromSocketState(state, payload, priorityMs = 0) {
   const playlist = normalizePlaylist(payload?.playlist);
+  const playlistConfig = getPlaylistConfig(playlist);
   const region = normalizeRegion(payload?.region);
   const inputMode = normalizeInputMode(payload?.inputMode);
   const nickname = sanitizeNickname(payload?.nickname ?? state.nickname);
   const requestedParty = clamp(Number(payload?.partySize) || 1, 1, 4);
-  const maxParty = shouldForcePartyClamp(playlist) ? 2 : 2;
-  const partySize = clamp(requestedParty, 1, maxParty);
+  const partySize = clamp(requestedParty, 1, playlistConfig.maxPartySize);
   const maxPingMs = clamp(Number(payload?.maxPingMs) || DEFAULT_MAX_PING_MS, 80, 500);
 
   state.nickname = nickname;
@@ -493,7 +519,7 @@ function enqueueFromSocketState(state, payload, priorityMs = 0) {
 
   if (requestedParty !== partySize) {
     socket?.emit("serverNotice", {
-      message: `Party size ajustado a ${partySize} para cola ${playlist}.`,
+      message: `Party size ajustado a ${partySize} para cola ${playlistConfig.label}.`,
     });
   }
   updateQueuePositions(key);
@@ -640,10 +666,12 @@ function tryCreateReadyChecks(bucketKey) {
   if (list.length < 2) {
     return;
   }
+  const playlist = list[0]?.playlist ?? "ranked";
+  const playlistConfig = getPlaylistConfig(playlist);
 
   while (true) {
     const now = Date.now();
-    const candidate = findBestCandidate(list, now);
+    const candidate = findBestCandidate(list, now, playlistConfig);
     if (!candidate) {
       break;
     }
@@ -744,14 +772,31 @@ function tickQueueMatchmaking() {
     tryCreateReadyChecks(key);
   }
 }
+
+function enforceRoomSlotMask(room) {
+  const disabledUntil = room.game.state.time + INACTIVE_SLOT_RESPAWN_SECONDS;
+  for (const slot of room.inactiveSlots) {
+    const paddle = room.game.state.paddles?.[slot];
+    if (!paddle) {
+      continue;
+    }
+    paddle.segmentHp = [0, 0, 0];
+    paddle.respawnUntil = Math.max(paddle.respawnUntil ?? 0, disabledUntil);
+    paddle.input = 0;
+    paddle.fireCooldownUntil = Math.max(paddle.fireCooldownUntil ?? 0, disabledUntil);
+  }
+}
+
 function createRoomFromReady(ready) {
   const roomId = `match-${roomSequence}`;
   roomSequence += 1;
+  const playlistConfig = getPlaylistConfig(ready.playlist);
 
   const game = new GameCore({ seed: ready.seed });
   const room = {
     id: roomId,
     playlist: ready.playlist,
+    playlistConfig,
     region: ready.region,
     seed: ready.seed,
     game,
@@ -764,6 +809,8 @@ function createRoomFromReady(ready) {
     snapshotAccumulator: 0,
     serverSeq: 0,
     lastSnapshot: game.getSerializableState(),
+    activeSlots: new Set(),
+    inactiveSlots: new Set([0, 1, 2, 3]),
     ended: false,
   };
 
@@ -788,6 +835,8 @@ function createRoomFromReady(ready) {
     room.members.set(roomMember.playerId, roomMember);
     for (const slot of roomMember.slots) {
       room.slotOwner[slot] = roomMember.playerId;
+      room.activeSlots.add(slot);
+      room.inactiveSlots.delete(slot);
     }
 
     if (state) {
@@ -801,6 +850,8 @@ function createRoomFromReady(ready) {
     }
   }
 
+  enforceRoomSlotMask(room);
+  room.lastSnapshot = room.game.getSerializableState();
   activeRooms.set(roomId, room);
 
   for (const member of ready.members) {
@@ -1066,9 +1117,12 @@ function tickRooms() {
       continue;
     }
 
+    enforceRoomSlotMask(room);
+
     const inputs = { 0: 0, 1: 0, 2: 0, 3: 0 };
     const fireSlots = new Set();
     const occupied = new Set();
+    const botBlockedSlots = new Set(room.inactiveSlots);
 
     for (const member of room.members.values()) {
       if (!member.socketId) {
@@ -1087,11 +1141,16 @@ function tickRooms() {
       fireSlots.add(slot);
     }
 
-    const botInputs = buildBotInputs(room.game.state, occupied);
+    const botOccupied = new Set([...occupied, ...botBlockedSlots]);
+    const botInputs = buildBotInputs(room.game.state, botOccupied);
     Object.assign(inputs, botInputs);
-    const botFire = buildBotFireSlots(room.game.state, occupied);
+    const botFire = buildBotFireSlots(room.game.state, botOccupied);
     for (const slot of botFire) {
       fireSlots.add(slot);
+    }
+    for (const slot of room.inactiveSlots) {
+      fireSlots.delete(slot);
+      inputs[slot] = 0;
     }
 
     room.lastSnapshot = room.game.step(dt, inputs, [...fireSlots]);

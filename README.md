@@ -1,10 +1,10 @@
-# Pong Versus 2v2
+# Pong Versus 2v2 + 1v1
 
-Webapp de Pong versus para hasta 4 jugadores (2v2), con:
+Webapp de Pong versus para hasta 4 jugadores, con:
 
 - Render en `three.js`.
 - Teclado y gamepad.
-- Matchmaking online real con `socket.io` (cola MMR, ready-check, reconexion).
+- Matchmaking online real con `socket.io` (2v2 Ranked y 1v1 Duel).
 - Modo local con bots para slots vacios.
 - Poderes (`paddle`, `shield`, `boost`, `split`, `weapon`, `heal`, `restore`, `spawnObstacle`).
 - Sistema de armas por niveles (1 disparo, disparo grande, 2 disparos, 2 disparos grandes).
@@ -36,6 +36,9 @@ Esto levanta:
 - Simulacion de partida en servidor (cliente solo envia input).
 - Reconexion con token por partida y ventana de gracia.
 - Rating Elo persistente por jugador.
+- 2 playlists:
+  - `ranked`: 2v2 (party size max 2)
+  - `duel`: 1v1 (party size max 1)
 
 ## Persistencia
 
